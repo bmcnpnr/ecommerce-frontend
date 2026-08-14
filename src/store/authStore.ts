@@ -7,6 +7,7 @@ interface AuthState {
   username: string | null;
   role: UserRole | null;
   expiresIn: number | null;
+  loginAt: number | null;
   isAuthenticated: boolean;
   login: (data: { token: string; username: string; role: UserRole; expiresIn: number }) => void;
   logout: () => void;
@@ -22,6 +23,7 @@ export const useAuthStore = create<AuthState>()(
       username: null,
       role: null,
       expiresIn: null,
+      loginAt: null,
       isAuthenticated: false,
       cartOrderId: null,
 
@@ -31,6 +33,7 @@ export const useAuthStore = create<AuthState>()(
           username,
           role,
           expiresIn,
+          loginAt: Date.now(),
           isAuthenticated: true,
         }),
 
@@ -40,6 +43,7 @@ export const useAuthStore = create<AuthState>()(
           username: null,
           role: null,
           expiresIn: null,
+          loginAt: null,
           isAuthenticated: false,
           cartOrderId: null,
         }),
@@ -55,6 +59,7 @@ export const useAuthStore = create<AuthState>()(
         username: state.username,
         role: state.role,
         expiresIn: state.expiresIn,
+        loginAt: state.loginAt,
         isAuthenticated: state.isAuthenticated,
         cartOrderId: state.cartOrderId,
       }),

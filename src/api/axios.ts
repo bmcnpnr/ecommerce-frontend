@@ -10,7 +10,7 @@ const axiosInstance = axios.create({
   timeout: 30000,
 });
 
-// Request interceptor - attach auth token
+// Request interceptor - attach auth token and check expiry
 axiosInstance.interceptors.request.use(
   (config: InternalAxiosRequestConfig) => {
     const stored = localStorage.getItem('auth-storage');
@@ -19,7 +19,16 @@ axiosInstance.interceptors.request.use(
         const parsed = JSON.parse(stored);
         const token = parsed?.state?.token;
         const username = parsed?.state?.username;
+        const loginAt = parsed?.state?.loginAt;
+        const expiresIn = parsed?.state?.expiresIn; // seconds
+
         if (token) {
+          // Check if token has expired before attaching it
+          if (loginAt && expiresIn && Date.now() > loginAt + expiresIn * 1000) {
+            localStorage.removeItem('auth-storage');
+            window.location.href = '/login';
+            return Promise.reject(new Error('Session expired. Please log in again.'));
+          }
           config.headers.Authorization = `Bearer ${token}`;
         }
         if (username && config.url?.includes('/me')) {
