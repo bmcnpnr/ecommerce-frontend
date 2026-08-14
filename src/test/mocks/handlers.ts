@@ -1,6 +1,9 @@
 import { http, HttpResponse } from 'msw';
 
-const BASE_URL = 'http://localhost:8080';
+// Relative, matching the app's VITE_API_BASE_URL=/ — requests are same-origin and
+// proxied (Vite in dev, nginx in the container). MSW resolves these against the
+// jsdom origin, so the mocks track however the app is actually configured.
+const BASE_URL = '';
 
 export const handlers = [
   // Auth

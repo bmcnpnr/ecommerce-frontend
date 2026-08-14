@@ -2,8 +2,13 @@ node_modules
 dist
 .git
 .gitignore
+.circleci
+.idea
+.vscode
 *.md
+*.log
 coverage
+test-results
 .env
 .env.local
 .env.*.local

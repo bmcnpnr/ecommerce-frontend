@@ -13,7 +13,7 @@ describe('productsApi', () => {
 
     it('returns empty page when no products', async () => {
       server.use(
-        http.get('http://localhost:8080/api/v1/products', () => {
+        http.get('/api/v1/products', () => {
           return HttpResponse.json({
             content: [],
             totalElements: 0,
@@ -37,7 +37,7 @@ describe('productsApi', () => {
 
     it('throws 404 for unknown product', async () => {
       server.use(
-        http.get('http://localhost:8080/api/v1/products/:id', () => {
+        http.get('/api/v1/products/:id', () => {
           return HttpResponse.json(
             { status: 404, error: 'Not Found', message: 'Product not found' },
             { status: 404 }
@@ -52,7 +52,7 @@ describe('productsApi', () => {
     it('returns empty results for unknown query', async () => {
       // Explicitly register the search handler to ensure correct path matching
       server.use(
-        http.get('http://localhost:8080/api/v1/products/search', () => {
+        http.get('/api/v1/products/search', () => {
           return HttpResponse.json({
             content: [],
             totalElements: 0,

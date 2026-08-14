@@ -14,7 +14,7 @@ describe('authApi', () => {
 
     it('throws on invalid credentials', async () => {
       server.use(
-        http.post('http://localhost:8080/api/v1/users/login', () => {
+        http.post('/api/v1/users/login', () => {
           return HttpResponse.json(
             { timestamp: new Date(), status: 401, error: 'Unauthorized', message: 'Invalid username or password' },
             { status: 401 }
@@ -38,7 +38,7 @@ describe('authApi', () => {
 
     it('throws on duplicate username', async () => {
       server.use(
-        http.post('http://localhost:8080/api/v1/users/register', () => {
+        http.post('/api/v1/users/register', () => {
           return HttpResponse.json(
             { status: 409, error: 'Conflict', message: 'Username already taken' },
             { status: 409 }

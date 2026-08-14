@@ -1,0 +1,137 @@
+version: 2.1
+
+executors:
+  node:
+    docker:
+      - image: cimg/node:24.18
+    resource_class: medium
+
+commands:
+  install-dependencies:
+    steps:
+      - restore_cache:
+          keys:
+            - npm-v3-{{ checksum "package-lock.json" }}
+            - npm-v3-
+      - run:
+          name: Install dependencies
+          command: npm ci
+      - save_cache:
+          key: npm-v3-{{ checksum "package-lock.json" }}
+          paths:
+            - ~/.npm
+
+jobs:
+  test:
+    executor: node
+    steps:
+      - checkout
+      - install-dependencies
+      - run:
+          name: Run unit tests
+          command: npm test -- --run
+
+  build:
+    executor: node
+    steps:
+      - checkout
+      - install-dependencies
+      - run:
+          name: Type-check and build
+          command: npm run build
+      - store_artifacts:
+          path: dist
+          destination: frontend
+
+  validate-image:
+    docker:
+      - image: cimg/base:2026.08
+    resource_class: medium
+    environment:
+      IMAGE_NAME: ecommerce-frontend
+      GIT_REVISION: << pipeline.git.revision >>
+      GIT_REPO_URL: << pipeline.git.repo_url >>
+    steps:
+      - checkout
+      - setup_remote_docker
+      - run:
+          name: Build Docker image without registry credentials
+          command: |
+            set -euo pipefail
+
+            IMAGE="local/${IMAGE_NAME}:sha-${GIT_REVISION:0:12}"
+            docker build --pull \
+              --build-arg "VITE_API_BASE_URL=${VITE_API_BASE_URL:-/}" \
+              --label "org.opencontainers.image.revision=${GIT_REVISION}" \
+              --label "org.opencontainers.image.source=${GIT_REPO_URL}" \
+              --tag "${IMAGE}" .
+            docker image inspect "${IMAGE}" >/dev/null
+
+  publish-image:
+    docker:
+      - image: cimg/base:2026.08
+    resource_class: medium
+    environment:
+      IMAGE_NAME: ecommerce-frontend
+      GIT_REVISION: << pipeline.git.revision >>
+      GIT_BRANCH: << pipeline.git.branch >>
+      GIT_TAG: << pipeline.git.tag >>
+      GIT_REPO_URL: << pipeline.git.repo_url >>
+    steps:
+      - checkout
+      - setup_remote_docker
+      - run:
+          name: Build and publish Docker image
+          command: |
+            set -euo pipefail
+
+            if [[ -z "${DOCKERHUB_USERNAME:-}" || -z "${DOCKERHUB_ACCESS_TOKEN:-}" ]]; then
+              echo "DOCKERHUB_USERNAME and DOCKERHUB_ACCESS_TOKEN must be set in the ecommerce-dockerhub context." >&2
+              exit 1
+            fi
+
+            IMAGE="${DOCKERHUB_USERNAME}/${IMAGE_NAME}"
+            SHA_TAG="sha-${GIT_REVISION:0:12}"
+
+            printf '%s' "${DOCKERHUB_ACCESS_TOKEN}" | docker login --username "${DOCKERHUB_USERNAME}" --password-stdin
+            docker build --pull \
+              --build-arg "VITE_API_BASE_URL=${VITE_API_BASE_URL:-/}" \
+              --label "org.opencontainers.image.revision=${GIT_REVISION}" \
+              --label "org.opencontainers.image.source=${GIT_REPO_URL}" \
+              --tag "${IMAGE}:${SHA_TAG}" .
+
+            docker push "${IMAGE}:${SHA_TAG}"
+
+            if [[ -n "${GIT_TAG}" ]]; then
+              DELIVERY_TAG="${GIT_TAG}"
+            elif [[ "${GIT_BRANCH}" == "develop" ]]; then
+              DELIVERY_TAG="develop"
+            else
+              DELIVERY_TAG="latest"
+            fi
+
+            docker tag "${IMAGE}:${SHA_TAG}" "${IMAGE}:${DELIVERY_TAG}"
+            docker push "${IMAGE}:${DELIVERY_TAG}"
+
+workflows:
+  ci-cd:
+    jobs:
+      - test:
+          filters: pipeline.git.branch or pipeline.git.tag
+      - build:
+          filters: pipeline.git.branch or pipeline.git.tag
+      - validate-image:
+          requires:
+            - test
+            - build
+          filters: pipeline.git.branch or pipeline.git.tag
+      - publish-image:
+          context:
+            - ecommerce-dockerhub
+          requires:
+            - validate-image
+          filters: |
+            pipeline.git.branch == "develop"
+            or pipeline.git.branch == "main"
+            or pipeline.git.branch == "master"
+            or (pipeline.git.tag matches /^v.*/)
