@@ -22,5 +22,12 @@ export default defineConfig({
     globals: true,
     environment: 'jsdom',
     setupFiles: ['./src/test/setup.ts'],
+    // Pin the API base URL for tests instead of inheriting it from .env, which is
+    // gitignored and so absent on a CI checkout. Without this the constant falls
+    // back to the absolute http://localhost:8080, the relative MSW handlers stop
+    // matching, and the suite passes locally while failing in CI.
+    env: {
+      VITE_API_BASE_URL: '/',
+    },
   },
 });
